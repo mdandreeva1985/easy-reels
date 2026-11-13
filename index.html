@@ -92,15 +92,14 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
   background:#17151f;color:#fff;padding:14px 18px;border-radius:14px;font-size:15px;width:max-content;max-width:calc(100% - 32px);text-align:center;transition:.25s;z-index:60}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 [hidden]{display:none!important}
-.pos{display:flex;gap:16px;align-items:flex-start}
-.pos canvas,.modal canvas{touch-action:none;cursor:grab;border-radius:14px;background:var(--soft);box-shadow:0 6px 18px rgba(0,0,0,.12)}
-.pos canvas{width:150px;height:267px;flex:none}
-.pos .side{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.modal canvas{touch-action:none;cursor:grab;border-radius:14px;background:var(--soft);box-shadow:0 6px 18px rgba(0,0,0,.12)}
 .seg{display:flex;flex-direction:column;gap:8px}
 .seg button{height:44px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-size:15px;font-weight:600}
 .seg button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .row canvas{cursor:pointer}
-.own{font-size:12px;font-weight:700;color:var(--a1)}
+.hint{display:flex;gap:12px;align-items:center;background:var(--workbg)}
+.hint span{font-size:28px;line-height:1}
+.hint p{margin:0;font-size:15px;line-height:1.4}
 .modal{position:fixed;inset:0;z-index:70;background:rgba(10,8,20,.6);display:grid;place-items:center;padding:16px}
 .modal-card{width:min(420px,100%);max-height:100%;overflow:auto;background:var(--card);border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:12px;align-items:center}
 .modal-card b{font-size:17px;text-align:center}
@@ -127,7 +126,6 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
       <button type="button" data-p="bottom">Снизу</button>
     </div>
     <div class="acts">
-      <button type="button" class="reset" id="mReset">Как у всех</button>
       <button type="button" class="ok" id="mOk">Готово</button>
     </div>
   </div>
@@ -179,19 +177,9 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
     <p class="note" id="videosNote">До 30 видео. Видео 1 получит заголовок 1, видео 2 — заголовок 2 и так далее.</p>
   </section>
 
-  <section class="card" id="posCard" hidden>
-    <p class="cap">Где будет заголовок</p>
-    <div class="pos">
-      <canvas id="posCv" width="300" height="534"></canvas>
-      <div class="side">
-        <div class="seg" id="posSeg">
-          <button type="button" data-p="top">Сверху</button>
-          <button type="button" data-p="center">По центру</button>
-          <button type="button" data-p="bottom">Снизу</button>
-        </div>
-        <p class="note" style="margin:0">Перетащите плашку пальцем. Так будет на всех роликах. Чтобы поменять только у одного — нажмите на его картинку ниже.</p>
-      </div>
-    </div>
+  <section class="card hint" id="posCard" hidden>
+    <span>👆</span>
+    <p><b>Нажмите на картинку ролика</b> и пальцем передвиньте заголовок туда, где он не мешает. Нажмите «Готово». Так можно с каждым роликом. Потом нажмите «Смонтировать».</p>
   </section>
 
   <div class="list" id="list"></div>
@@ -313,7 +301,6 @@ const plates = new Map();
 const plateFor = (t) => { if (!plates.has(t)) plates.set(t, makePlate(t)); return plates.get(t); };
 // общая позиция плашки (доля высоты кадра), запоминается на устройстве
 let globalPos = POS.default;
-try { const v = parseFloat(localStorage.getItem('zr-pos')); if (v > 0 && v < 1) globalPos = v; } catch {}
 const posOf = (it) => it.pos ?? globalPos;
 
 // Перетаскивание плашки по превью: середина плашки идёт за пальцем
@@ -386,10 +373,10 @@ function addItem(file) {
   const el = document.createElement('div');
   el.className = 'row';
   el.innerHTML = `<span class="no"></span><canvas width="216" height="384"></canvas>
-    <div class="info"><span class="t"></span><span class="own" hidden>Своя позиция заголовка</span><div class="st"><div class="bar"><i></i></div><span class="s"></span></div>
+    <div class="info"><span class="t"></span><div class="st"><div class="bar"><i></i></div><span class="s"></span></div>
     <button class="save1" type="button">Сохранить</button></div><button class="rm" type="button" aria-label="Убрать">×</button>`;
   const it = { file, frame: null, el, result: null, pos: null,
-    ui: { no: el.querySelector('.no'), cv: el.querySelector('canvas'), t: el.querySelector('.t'), own: el.querySelector('.own'),
+    ui: { no: el.querySelector('.no'), cv: el.querySelector('canvas'), t: el.querySelector('.t'),
       bar: el.querySelector('.bar i'), s: el.querySelector('.s') } };
   el.querySelector('.rm').onclick = () => {
     if (running) return;
@@ -399,7 +386,7 @@ function addItem(file) {
   it.ui.cv.onclick = () => openEditor(it);
   items.push(it);
   $('list').appendChild(el);
-  previewFrame(file).then((p) => { it.frame = p?.canvas || null; renderItem(it, items.indexOf(it)); renderGlobal(); })
+  previewFrame(file).then((p) => { it.frame = p?.canvas || null; renderItem(it, items.indexOf(it)); })
     .catch(() => {});
 }
 function updateVideosNote() {
@@ -417,30 +404,13 @@ function renderItem(it, i) {
   it.ui.t.textContent = title || 'Нет заголовка с таким номером — это видео пропустим';
   it.ui.t.classList.toggle('miss', !title);
   drawPreview(it.ui.cv, it.frame, title ? plateFor(title) : null, posOf(it));
-  it.ui.own.hidden = it.pos == null || !title;
   if (!it.result && !running) { it.ui.s.textContent = title ? 'Готово к монтажу' : ''; it.ui.bar.style.width = '0'; }
 }
 
 // --- общая позиция плашки для всех роликов ---
-function sample() {
-  const i = items.findIndex((x, k) => titles[k]);
-  return i >= 0 ? { it: items[i], title: titles[i] } : { it: null, title: titles[0] || 'Здесь будет ваш заголовок' };
-}
 function renderGlobal() {
-  $('posCard').hidden = !items.length && !titles.length;
-  const { it, title } = sample();
-  drawPreview($('posCv'), it?.frame || null, plateFor(title), globalPos);
-  markSeg($('posSeg'), globalPos);
+  $('posCard').hidden = !items.some((x, i) => titles[i]);
 }
-function setGlobal(pos) {
-  if (running) return;
-  globalPos = pos;
-  try { localStorage.setItem('zr-pos', String(pos)); } catch {}
-  items.forEach((x) => { if (x.pos == null) invalidate(x); });
-  renderAll(); renderSaves();
-}
-draggable($('posCv'), () => plateFor(sample().title), setGlobal);
-$('posSeg').onclick = (e) => { const p = e.target.dataset?.p; if (p) setGlobal(POS[p]); };
 
 // --- своя позиция у одного ролика ---
 let editing = null;
@@ -465,10 +435,6 @@ function openEditor(it) {
 }
 draggable($('mCv'), () => editing && plateFor(titles[items.indexOf(editing)]), setOwn);
 $('mSeg').onclick = (e) => { const p = e.target.dataset?.p; if (p) setOwn(POS[p]); };
-$('mReset').onclick = () => {
-  if (!editing || running) return;
-  editing.pos = null; invalidate(editing); renderModal(); renderAll(); renderSaves();
-};
 $('mOk').onclick = () => { editing = null; $('modal').hidden = true; };
 $('modal').onclick = (e) => { if (e.target === $('modal')) $('mOk').onclick(); };
 
