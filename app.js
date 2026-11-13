@@ -35,35 +35,49 @@ function clean(s) {
 // ---------------------------------------------------------------------------
 // Плашка с заголовком: прозрачный слой 1080×1920
 // ---------------------------------------------------------------------------
-export function makeOverlay(title) {
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const ctx = c.getContext('2d');
+// Позиция плашки: доля высоты кадра, где стоит СЕРЕДИНА плашки (0 — верх, 1 — низ)
+export const POS = { top: 0.22, center: 0.5, bottom: 0.72, default: 0.22 };
+const SAFE_TOP = 0.04, SAFE_BOTTOM = 0.96;   // плашка не уходит за края кадра
+
+// Плашка: картинка шириной 1080 и высотой ровно по тексту
+export function makePlate(title) {
+  const tmp = document.createElement('canvas').getContext('2d');
   let size = 66;
   const maxW = 900;
   let lines;
   // если заголовок длинный — уменьшаем шрифт, чтобы было не больше 5 строк
   for (;;) {
-    ctx.font = FONT.replace('{px}', size);
-    lines = wrap(ctx, title, maxW);
+    tmp.font = FONT.replace('{px}', size);
+    lines = wrap(tmp, title, maxW);
     if (lines.length <= 5 || size <= 44) break;
     size -= 4;
   }
   const lineH = Math.round(size * 1.28);
   const padX = Math.round(size * 0.42), padY = Math.round(size * 0.16);
   const r = Math.round(size * 0.32);
-  const y0 = Math.round(H * 0.16);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = lines.length * lineH + padY * 2;
+  const ctx = c.getContext('2d');
+  ctx.font = FONT.replace('{px}', size);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
   lines.forEach((ln, i) => {
     const w = ctx.measureText(ln).width;
-    const x = (W - w) / 2 - padX, y = y0 + i * lineH - padY;
-    roundRect(ctx, x, y, w + padX * 2, lineH + padY * 2, r);
+    roundRect(ctx, (W - w) / 2 - padX, padY + i * lineH - padY, w + padX * 2, lineH + padY * 2, r);
   });
   ctx.fillStyle = '#000000';
-  lines.forEach((ln, i) => ctx.fillText(ln, W / 2, y0 + i * lineH + lineH / 2));
+  lines.forEach((ln, i) => ctx.fillText(ln, W / 2, padY + i * lineH + lineH / 2));
   return c;
+}
+// верхний край плашки (в пикселях кадра 1080×1920) для позиции pos
+export function plateTop(plate, pos) {
+  const y = Math.round((pos ?? POS.default) * H - plate.height / 2);
+  return Math.max(Math.round(SAFE_TOP * H), Math.min(Math.round(SAFE_BOTTOM * H) - plate.height, y));
+}
+// позиция по точке касания (доля высоты), с учётом краёв
+export function clampPos(plate, pos) {
+  return (plateTop(plate, pos) + plate.height / 2) / H;
 }
 function wrap(ctx, text, maxW) {
   const out = [];
@@ -114,14 +128,14 @@ export async function previewFrame(file) {
     input.dispose?.();
   }
 }
-export function drawPreview(canvas, frame, overlay) {
+export function drawPreview(canvas, frame, plate, pos) {
   const s = canvas.width / W;
   const ctx = canvas.getContext('2d');
   ctx.save();
   ctx.scale(s, s);
   ctx.fillStyle = '#222'; ctx.fillRect(0, 0, W, H);
   if (frame) drawCover(ctx, frame, frame.width, frame.height);
-  if (overlay) ctx.drawImage(overlay, 0, 0);
+  if (plate) ctx.drawImage(plate, 0, plateTop(plate, pos));
   ctx.restore();
 }
 
@@ -165,7 +179,7 @@ function ensureAac() {
 
 // ---------------------------------------------------------------------------
 // Один рилс: видео + заголовок → mp4 1080×1920
-// opts: { signal, software, created } — отмена, программный кодировщик, дата создания
+// opts: { pos, signal, software, created } — позиция плашки, отмена, программный кодировщик, дата создания
 // ---------------------------------------------------------------------------
 export async function makeReel(file, title, onProgress = () => {}, opts = {}) {
   const check = () => { if (opts.signal?.aborted) throw new DOMException('Отменено', 'AbortError'); };
@@ -189,7 +203,8 @@ export async function makeReel(file, title, onProgress = () => {}, opts = {}) {
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d', { alpha: false });
-    const overlay = makeOverlay(title);
+    const plate = makePlate(title);
+    const plateY = plateTop(plate, opts.pos);
 
     const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
     const vSource = new CanvasSource(canvas, { codec: 'avc', bitrate, keyFrameInterval: 2, latencyMode: 'quality', ...hw });
@@ -222,7 +237,7 @@ export async function makeReel(file, title, onProgress = () => {}, opts = {}) {
         if (wc) {
           ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
           drawCover(ctx, wc.canvas, wc.canvas.width, wc.canvas.height);
-          ctx.drawImage(overlay, 0, 0);
+          ctx.drawImage(plate, 0, plateY);
         }
         await vSource.add(fi / fps, 1 / fps);
         fi++;

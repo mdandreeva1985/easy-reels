@@ -92,10 +92,46 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
   background:#17151f;color:#fff;padding:14px 18px;border-radius:14px;font-size:15px;width:max-content;max-width:calc(100% - 32px);text-align:center;transition:.25s;z-index:60}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 [hidden]{display:none!important}
+.pos{display:flex;gap:16px;align-items:flex-start}
+.pos canvas,.modal canvas{touch-action:none;cursor:grab;border-radius:14px;background:var(--soft);box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.pos canvas{width:150px;height:267px;flex:none}
+.pos .side{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.seg{display:flex;flex-direction:column;gap:8px}
+.seg button{height:44px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-size:15px;font-weight:600}
+.seg button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.row canvas{cursor:pointer}
+.own{font-size:12px;font-weight:700;color:var(--a1)}
+.modal{position:fixed;inset:0;z-index:70;background:rgba(10,8,20,.6);display:grid;place-items:center;padding:16px}
+.modal-card{width:min(420px,100%);max-height:100%;overflow:auto;background:var(--card);border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:12px;align-items:center}
+.modal-card b{font-size:17px;text-align:center}
+.modal-card .t{font-size:14px;color:var(--muted);text-align:center}
+.modal canvas{width:min(240px,60vw);aspect-ratio:9/16;height:auto}
+.modal .seg{flex-direction:row;width:100%}
+.modal .seg button{flex:1}
+.modal .acts{display:flex;gap:10px;width:100%}
+.modal .acts button{flex:1;height:50px;border-radius:14px;border:0;font-weight:700;font-size:16px}
+.modal .acts .reset{background:var(--soft);color:var(--ink)}
+.modal .acts .ok{background:linear-gradient(90deg,var(--a1),var(--a2));color:#fff}
 </style>
 </head>
 <body>
 <div id="toast" class="toast" role="status"></div>
+<div class="modal" id="modal" hidden>
+  <div class="modal-card">
+    <b id="mTitle">Рилс 1</b>
+    <span class="t">Перетащите плашку пальцем — только для этого ролика</span>
+    <canvas id="mCv" width="360" height="640"></canvas>
+    <div class="seg" id="mSeg">
+      <button type="button" data-p="top">Сверху</button>
+      <button type="button" data-p="center">По центру</button>
+      <button type="button" data-p="bottom">Снизу</button>
+    </div>
+    <div class="acts">
+      <button type="button" class="reset" id="mReset">Как у всех</button>
+      <button type="button" class="ok" id="mOk">Готово</button>
+    </div>
+  </div>
+</div>
 
 <div id="gate" class="gate" hidden>
   <form class="gate-card" id="gateForm" autocomplete="off">
@@ -143,6 +179,21 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
     <p class="note" id="videosNote">До 30 видео. Видео 1 получит заголовок 1, видео 2 — заголовок 2 и так далее.</p>
   </section>
 
+  <section class="card" id="posCard" hidden>
+    <p class="cap">Где будет заголовок</p>
+    <div class="pos">
+      <canvas id="posCv" width="300" height="534"></canvas>
+      <div class="side">
+        <div class="seg" id="posSeg">
+          <button type="button" data-p="top">Сверху</button>
+          <button type="button" data-p="center">По центру</button>
+          <button type="button" data-p="bottom">Снизу</button>
+        </div>
+        <p class="note" style="margin:0">Перетащите плашку пальцем. Так будет на всех роликах. Чтобы поменять только у одного — нажмите на его картинку ниже.</p>
+      </div>
+    </div>
+  </section>
+
   <div class="list" id="list"></div>
 
   <!-- ШАГ 3 -->
@@ -166,7 +217,7 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
 </main>
 
 <script type="module">
-import { parseTitles, makeOverlay, makeReel, previewFrame, drawPreview } from './app.js';
+import { parseTitles, makePlate, clampPos, POS, makeReel, previewFrame, drawPreview } from './app.js';
 import { SALT, CODES } from './codes.js';
 
 const $ = (id) => document.getElementById(id);
@@ -258,8 +309,36 @@ function toast(text, ms = 5000) {
 let titles = [];
 let items = [];          // { file, frame, el, ui, result }
 let running = false, ctrl = null, wakeLock = null;
-const overlays = new Map();
-const overlayFor = (t) => { if (!overlays.has(t)) overlays.set(t, makeOverlay(t)); return overlays.get(t); };
+const plates = new Map();
+const plateFor = (t) => { if (!plates.has(t)) plates.set(t, makePlate(t)); return plates.get(t); };
+// общая позиция плашки (доля высоты кадра), запоминается на устройстве
+let globalPos = POS.default;
+try { const v = parseFloat(localStorage.getItem('zr-pos')); if (v > 0 && v < 1) globalPos = v; } catch {}
+const posOf = (it) => it.pos ?? globalPos;
+
+// Перетаскивание плашки по превью: середина плашки идёт за пальцем
+function draggable(canvas, getPlate, onPos) {
+  let drag = false;
+  const at = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const plate = getPlate();
+    if (plate) onPos(clampPos(plate, Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))));
+  };
+  canvas.addEventListener('pointerdown', (e) => { drag = true; try { canvas.setPointerCapture(e.pointerId); } catch {} at(e); e.preventDefault(); });
+  canvas.addEventListener('pointermove', (e) => { if (drag) at(e); });
+  const end = () => { drag = false; };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+}
+function markSeg(seg, pos) {
+  [...seg.children].forEach((b) => b.classList.toggle('on', Math.abs(POS[b.dataset.p] - pos) < 0.02));
+}
+// готовый рилс с другой позицией плашки надо смонтировать заново
+function invalidate(it) {
+  if (!it.result) return;
+  it.result = null;
+  it.el.classList.remove('done');
+}
 const plural = (n, a, b, c) => (n % 10 === 1 && n % 100 !== 11) ? a : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? b : c;
 
 // --- шаг 1: заголовки ---
@@ -307,19 +386,20 @@ function addItem(file) {
   const el = document.createElement('div');
   el.className = 'row';
   el.innerHTML = `<span class="no"></span><canvas width="216" height="384"></canvas>
-    <div class="info"><span class="t"></span><div class="st"><div class="bar"><i></i></div><span class="s"></span></div>
+    <div class="info"><span class="t"></span><span class="own" hidden>Своя позиция заголовка</span><div class="st"><div class="bar"><i></i></div><span class="s"></span></div>
     <button class="save1" type="button">Сохранить</button></div><button class="rm" type="button" aria-label="Убрать">×</button>`;
-  const it = { file, frame: null, el, result: null,
-    ui: { no: el.querySelector('.no'), cv: el.querySelector('canvas'), t: el.querySelector('.t'),
+  const it = { file, frame: null, el, result: null, pos: null,
+    ui: { no: el.querySelector('.no'), cv: el.querySelector('canvas'), t: el.querySelector('.t'), own: el.querySelector('.own'),
       bar: el.querySelector('.bar i'), s: el.querySelector('.s') } };
   el.querySelector('.rm').onclick = () => {
     if (running) return;
     items = items.filter((x) => x !== it); el.remove(); updateVideosNote(); renderAll();
   };
   el.querySelector('.save1').onclick = () => it.result && save([it.result]);
+  it.ui.cv.onclick = () => openEditor(it);
   items.push(it);
   $('list').appendChild(el);
-  previewFrame(file).then((p) => { it.frame = p?.canvas || null; renderItem(it, items.indexOf(it)); })
+  previewFrame(file).then((p) => { it.frame = p?.canvas || null; renderItem(it, items.indexOf(it)); renderGlobal(); })
     .catch(() => {});
 }
 function updateVideosNote() {
@@ -336,11 +416,65 @@ function renderItem(it, i) {
   it.ui.no.textContent = i + 1;
   it.ui.t.textContent = title || 'Нет заголовка с таким номером — это видео пропустим';
   it.ui.t.classList.toggle('miss', !title);
-  drawPreview(it.ui.cv, it.frame, title ? overlayFor(title) : null);
+  drawPreview(it.ui.cv, it.frame, title ? plateFor(title) : null, posOf(it));
+  it.ui.own.hidden = it.pos == null || !title;
   if (!it.result && !running) { it.ui.s.textContent = title ? 'Готово к монтажу' : ''; it.ui.bar.style.width = '0'; }
 }
+
+// --- общая позиция плашки для всех роликов ---
+function sample() {
+  const i = items.findIndex((x, k) => titles[k]);
+  return i >= 0 ? { it: items[i], title: titles[i] } : { it: null, title: titles[0] || 'Здесь будет ваш заголовок' };
+}
+function renderGlobal() {
+  $('posCard').hidden = !items.length && !titles.length;
+  const { it, title } = sample();
+  drawPreview($('posCv'), it?.frame || null, plateFor(title), globalPos);
+  markSeg($('posSeg'), globalPos);
+}
+function setGlobal(pos) {
+  if (running) return;
+  globalPos = pos;
+  try { localStorage.setItem('zr-pos', String(pos)); } catch {}
+  items.forEach((x) => { if (x.pos == null) invalidate(x); });
+  renderAll(); renderSaves();
+}
+draggable($('posCv'), () => plateFor(sample().title), setGlobal);
+$('posSeg').onclick = (e) => { const p = e.target.dataset?.p; if (p) setGlobal(POS[p]); };
+
+// --- своя позиция у одного ролика ---
+let editing = null;
+function renderModal() {
+  if (!editing) return;
+  const i = items.indexOf(editing);
+  $('mTitle').textContent = `Рилс ${i + 1}`;
+  drawPreview($('mCv'), editing.frame, plateFor(titles[i]), posOf(editing));
+  markSeg($('mSeg'), posOf(editing));
+}
+function setOwn(pos) {
+  if (!editing || running) return;
+  editing.pos = pos;
+  invalidate(editing);
+  renderModal(); renderAll(); renderSaves();
+}
+function openEditor(it) {
+  if (running || !titles[items.indexOf(it)]) return;
+  editing = it;
+  $('modal').hidden = false;
+  renderModal();
+}
+draggable($('mCv'), () => editing && plateFor(titles[items.indexOf(editing)]), setOwn);
+$('mSeg').onclick = (e) => { const p = e.target.dataset?.p; if (p) setOwn(POS[p]); };
+$('mReset').onclick = () => {
+  if (!editing || running) return;
+  editing.pos = null; invalidate(editing); renderModal(); renderAll(); renderSaves();
+};
+$('mOk').onclick = () => { editing = null; $('modal').hidden = true; };
+$('modal').onclick = (e) => { if (e.target === $('modal')) $('mOk').onclick(); };
+
 function renderAll() {
   items.forEach(renderItem);
+  renderGlobal();
   const n = Math.min(items.length, titles.length);
   const left = items.filter((x, i) => titles[i] && !x.result).length;
   $('goBtn').disabled = running || left === 0;
@@ -372,7 +506,7 @@ $('goBtn').onclick = async () => {
     for (let attempt = 1; attempt <= 3 && !blob; attempt++) {
       try {
         blob = await makeReel(it.file, title, (p) => { it.ui.bar.style.width = (p * 100) + '%'; },
-          { signal: ctrl.signal, software, created: new Date(base + i * 60e3) });
+          { pos: posOf(it), signal: ctrl.signal, software, created: new Date(base + i * 60e3) });
       } catch (e) {
         if (e.name === 'AbortError') break;
         console.warn('Попытка', attempt, e);
