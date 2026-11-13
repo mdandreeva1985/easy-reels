@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Заголовки для Reels</title>
+<meta name="description" content="Накладывает заголовки на ваши видео прямо на телефоне">
+<meta name="theme-color" content="#f5f3fa">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Заголовки">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<script type="importmap">{ "imports": { "mediabunny": "./vendor/mediabunny.min.mjs" } }</script>
+<style>
+:root{
+  --bg:#f5f3fa;--card:#fff;--ink:#17151f;--muted:#76717f;--soft:#eeebf4;--line:#e8e4ef;
+  --a1:#7b4dff;--a2:#e24dff;--ok:#23a55a;--okbg:#e3f5ea;--err:#d33;--errbg:#fde8e8;--workbg:#f1ebff;
+  --shadow:0 10px 30px rgba(40,20,80,.07);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121116;--card:#1d1b23;--ink:#f3f1f7;--muted:#9c97a6;--soft:#2a2731;--line:#2d2a33;
+  --okbg:#173a26;--errbg:#3c1a1a;--workbg:#2a2140;--shadow:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,Segoe UI,Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:max(24px,env(safe-area-inset-top)) 18px calc(40px + env(safe-area-inset-bottom))}
+h1{margin:4px 0 6px;font-size:36px;line-height:1.1;font-weight:800;letter-spacing:-.5px;
+  background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);margin:0 0 22px;font-size:16px}
+.card{background:var(--card);border-radius:26px;padding:20px 18px;box-shadow:var(--shadow);margin-bottom:18px}
+.cap{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+.cap i{font-style:normal;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--soft);color:var(--ink);letter-spacing:0}
+.card.ok .cap i{background:var(--ok);color:#fff}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:60px;border:0;border-radius:18px;cursor:pointer;
+  background:linear-gradient(90deg,var(--a1),var(--a2));color:#fff;font-size:19px;font-weight:700;box-shadow:0 10px 24px rgba(123,77,255,.25)}
+.btn:disabled{opacity:.4;box-shadow:none}
+.btn svg{width:22px;height:22px}
+.btn.dark{background:var(--ink);color:var(--bg);box-shadow:none}
+.btn.soft{background:var(--soft);color:var(--ink);box-shadow:none;height:50px;font-size:16px}
+input[type=file]{display:none}
+textarea{width:100%;min-height:96px;max-height:220px;margin-top:12px;padding:12px 14px;border-radius:16px;border:1.5px solid var(--line);
+  background:var(--bg);color:var(--ink);font-family:inherit;font-size:15px;line-height:1.4;resize:vertical}
+textarea:focus{outline:none;border-color:var(--a1)}
+.note{color:var(--muted);font-size:14px;margin:10px 0 0}
+.note b{color:var(--ink)}
+.note.good b{color:var(--ok)}
+.list{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:12px;align-items:center;background:var(--card);border-radius:20px;padding:10px;box-shadow:var(--shadow)}
+.row .no{flex:none;width:34px;text-align:center;font-weight:800;font-size:20px;color:var(--a1)}
+.row canvas{flex:none;width:63px;height:112px;border-radius:10px;background:var(--soft)}
+.row .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.row .t{font-size:14px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;word-break:break-word}
+.row .t.miss{color:var(--err)}
+.row .st{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.bar{flex:1;height:6px;border-radius:4px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--a1),var(--a2));transition:width .25s}
+.row.done .bar i{background:var(--ok)}
+.row.done .st{color:var(--ok)}
+.row.err .st{color:var(--err)}
+.row .save1{align-self:flex-start;border:0;background:var(--soft);color:var(--ink);border-radius:10px;height:34px;padding:0 14px;font-weight:700;font-size:14px;display:none}
+.row.done .save1{display:block}
+.row.done .rm,.busy .row .rm{display:none}
+.row .rm{flex:none;border:0;background:none;color:var(--muted);font-size:22px;width:30px}
+.saves{display:flex;flex-direction:column;gap:10px}
+.top-actions{display:flex;gap:10px;margin-top:12px}
+.top-actions .btn{flex:1}
+.warn{display:none;background:var(--workbg);border-radius:14px;padding:12px 14px;font-size:14px;margin:0 0 14px}
+.install{display:none;background:var(--card);border-radius:18px;padding:14px 16px;font-size:15px;margin-bottom:18px;box-shadow:var(--shadow)}
+.inapp{display:flex;flex-direction:column;gap:6px;background:#17151f;color:#fff;border-radius:18px;padding:16px;margin:-8px 0 18px}
+.inapp[hidden]{display:none}
+.inapp span{font-size:14px;opacity:.85}
+.inapp a{align-self:flex-start;margin-top:4px;padding:10px 16px;border-radius:12px;background:linear-gradient(90deg,var(--a1),var(--a2));color:#fff;font-weight:700;text-decoration:none}
+footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.contact{display:inline-flex;align-items:center;gap:6px}
+.contact svg{width:16px;height:16px}
+.contact a{color:#2AABEE;font-weight:600;text-decoration:none}
+.gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:24px 18px}
+.gate[hidden]{display:none}
+.gate-card{width:min(420px,100%);background:var(--card);border-radius:26px;padding:28px 22px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:14px;text-align:center}
+.gate-t{font-size:30px;font-weight:800;background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.gate-card p{margin:0;color:var(--muted)}
+.gate-card input{height:58px;border-radius:16px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:700 22px ui-monospace,Menlo,Consolas,monospace;text-align:center;letter-spacing:2px;text-transform:uppercase}
+.gate-card input:focus{outline:none;border-color:var(--a1)}
+.gate-err{color:var(--err);font-size:14px}
+.gate-err[hidden]{display:none}
+.gate-buy{display:flex;align-items:center;justify-content:center;height:54px;border-radius:18px;background:var(--ink);color:var(--bg);font-weight:700;text-decoration:none}
+.gate-buy[hidden]{display:none}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  background:#17151f;color:#fff;padding:14px 18px;border-radius:14px;font-size:15px;width:max-content;max-width:calc(100% - 32px);text-align:center;transition:.25s;z-index:60}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div id="toast" class="toast" role="status"></div>
+
+<div id="gate" class="gate" hidden>
+  <form class="gate-card" id="gateForm" autocomplete="off">
+    <span class="gate-t">Заголовки для Reels</span>
+    <p>Введите код доступа, который вы получили после покупки</p>
+    <input id="code" inputmode="text" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" maxlength="16" aria-label="Код доступа">
+    <span class="gate-err" id="gateErr" hidden>Такого кода нет. Проверьте буквы и цифры и попробуйте ещё раз.</span>
+    <button class="btn" type="submit">Войти</button>
+    <a class="gate-buy" id="gateBuy" href="#" target="_blank" rel="noopener" hidden>Подробнее и купить доступ</a>
+  </form>
+</div>
+
+<main>
+  <h1>Заголовки для Reels</h1>
+  <p class="sub">Вставьте заголовки, выберите видео — и получите готовые рилсы</p>
+
+  <div class="inapp" id="inapp" hidden>
+    <b id="inappTitle">Откройте приложение в браузере</b>
+    <span id="inappText">Сейчас оно открыто внутри Instagram или Telegram — здесь готовые видео не сохраняются.</span>
+    <a id="inappOpen" href="#">Открыть в Chrome</a>
+  </div>
+  <div class="install" id="install">
+    <b>Установите на экран «Домой»:</b> нажмите «Поделиться» внизу Safari, затем «На экран “Домой”». После этого приложение работает даже без интернета.
+  </div>
+
+  <!-- ШАГ 1 -->
+  <section class="card" id="step1">
+    <p class="cap"><i>1</i>Заголовки</p>
+    <button class="btn" id="pasteBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/></svg>
+      Вставить заголовки
+    </button>
+    <textarea id="titles" placeholder="Скопируйте заголовки из ответа ИИ и вставьте сюда. По одному на строку: 1. … 2. … 3. …"></textarea>
+    <p class="note" id="titlesNote">Заголовков пока нет</p>
+  </section>
+
+  <!-- ШАГ 2 -->
+  <section class="card" id="step2">
+    <p class="cap"><i>2</i>Видео</p>
+    <label class="btn" for="f">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>
+      Выбрать видео из галереи
+    </label>
+    <input type="file" id="f" accept="video/*" multiple>
+    <p class="note" id="videosNote">До 30 видео. Видео 1 получит заголовок 1, видео 2 — заголовок 2 и так далее.</p>
+  </section>
+
+  <div class="list" id="list"></div>
+
+  <!-- ШАГ 3 -->
+  <section class="card" id="step3" style="margin-top:18px">
+    <p class="cap"><i>3</i>Монтаж</p>
+    <div class="warn" id="warn">Пока идёт монтаж, не блокируйте экран и не сворачивайте приложение.</div>
+    <button class="btn dark" id="goBtn" type="button" disabled>Смонтировать</button>
+    <div class="saves" id="saves" hidden style="margin-top:12px"></div>
+    <div class="top-actions">
+      <button class="btn soft" id="resetBtn" type="button">Начать заново</button>
+    </div>
+  </section>
+
+  <footer>
+    <span>Разработчик приложения — Мария Андреева</span>
+    <span class="contact">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#2AABEE"/><path fill="#fff" d="M5.4 11.8l11.6-4.5c.5-.2 1 .1.8.9l-2 9.3c-.1.6-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-7 4.4-3-.9c-.6-.2-.7-.6.1-.9z"/></svg>
+      <a href="https://t.me/marya_andreeva" target="_blank" rel="noopener">Связаться</a>
+    </span>
+  </footer>
+</main>
+
+<script type="module">
+import { parseTitles, makeOverlay, makeReel, previewFrame, drawPreview } from './app.js';
+import { SALT, CODES } from './codes.js';
+
+const $ = (id) => document.getElementById(id);
+const MAX = 30;
+const BUY_URL = '';   // ссылка на страницу покупки (когда появится)
+
+// ===================================================================
+// Код доступа: вводится один раз на устройстве, дальше работает без интернета
+// ===================================================================
+const KEY = 'zr-access';
+async function codeHash(code) {
+  const norm = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(SALT + norm));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+// одно значение храним в нескольких местах: если телефон сотрёт одно — возьмём из другого
+const kv = {
+  async get(k) {
+    const out = [];
+    try { out.push(localStorage.getItem(k)); } catch {}
+    try { const m = document.cookie.match(new RegExp('(?:^|; )' + k + '=([^;]*)')); out.push(m && decodeURIComponent(m[1])); } catch {}
+    try { const r = await (await caches.open('zr-meta')).match('__meta/' + k); out.push(r && await r.text()); } catch {}
+    return out.filter((v) => v);
+  },
+  async set(k, v) {
+    try { localStorage.setItem(k, v); } catch {}
+    try { document.cookie = `${k}=${encodeURIComponent(v)}; max-age=157680000; path=/; SameSite=Lax; Secure`; } catch {}
+    try { await (await caches.open('zr-meta')).put('__meta/' + k, new Response(v)); } catch {}
+  },
+};
+const saved = (await kv.get(KEY)).find((h) => CODES.has(h));
+if (saved) kv.set(KEY, saved);
+else {
+  $('gate').hidden = false;
+  if (BUY_URL) { $('gateBuy').href = BUY_URL; $('gateBuy').hidden = false; }
+  setTimeout(() => $('code').focus(), 100);
+}
+$('code').addEventListener('input', () => {
+  const v = $('code').value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+  $('code').value = v.match(/.{1,4}/g)?.join('-') || '';
+  $('gateErr').hidden = true;
+});
+$('gateForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const h = await codeHash($('code').value);
+  if (CODES.has(h)) {
+    await kv.set(KEY, h);
+    try { await navigator.storage?.persist?.(); } catch {}
+    $('gate').hidden = true;
+  } else $('gateErr').hidden = false;
+});
+
+// ===================================================================
+// Окружение: Instagram/Telegram, старый браузер, установка на iPhone
+// ===================================================================
+const ua = navigator.userAgent;
+const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+(() => {
+  const inApp = /Instagram|FBAN|FBAV|FB_IAB|Telegram|VKAndroidApp|VKClient|Line\/|MicroMessenger|; wv\)/i.test(ua);
+  if (inApp) {
+    $('inapp').hidden = false;
+    const url = location.href.split('#')[0];
+    if (/Android/i.test(ua)) {
+      $('inappOpen').href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+    } else {
+      $('inappText').textContent = 'Сейчас оно открыто внутри Instagram или Telegram. Нажмите ⋯ и выберите «Открыть в Safari», затем установите на экран «Домой».';
+      $('inappOpen').hidden = true;
+    }
+  } else if (typeof VideoEncoder === 'undefined') {
+    $('inapp').hidden = false;
+    $('inappTitle').textContent = 'Этот браузер не умеет обрабатывать видео';
+    $('inappText').textContent = isIOS
+      ? 'Обновите iPhone до iOS 17 или новее (Настройки → Основные → Обновление ПО) и откройте приложение в Safari.'
+      : 'Откройте приложение в Chrome последней версии.';
+    $('inappOpen').hidden = true;
+  }
+  if (isIOS && !navigator.standalone) $('install').style.display = 'block';
+})();
+
+function toast(text, ms = 5000) {
+  const t = $('toast');
+  t.textContent = text; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// ===================================================================
+// Состояние
+// ===================================================================
+let titles = [];
+let items = [];          // { file, frame, el, ui, result }
+let running = false, ctrl = null, wakeLock = null;
+const overlays = new Map();
+const overlayFor = (t) => { if (!overlays.has(t)) overlays.set(t, makeOverlay(t)); return overlays.get(t); };
+const plural = (n, a, b, c) => (n % 10 === 1 && n % 100 !== 11) ? a : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? b : c;
+
+// --- шаг 1: заголовки ---
+function setTitles(text) {
+  titles = parseTitles(text);
+  const n = titles.length;
+  $('titlesNote').className = 'note' + (n ? ' good' : '');
+  $('titlesNote').innerHTML = n
+    ? `Найдено <b>${n} ${plural(n, 'заголовок', 'заголовка', 'заголовков')}</b>`
+    : 'Заголовков пока нет';
+  $('step1').classList.toggle('ok', n > 0);
+  try { localStorage.setItem('zr-titles', text); } catch {}
+  renderAll();
+}
+$('titles').addEventListener('input', () => setTitles($('titles').value));
+$('pasteBtn').onclick = async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.trim()) throw new Error('пусто');
+    $('titles').value = text;
+    setTitles(text);
+    if (!titles.length) toast('В скопированном тексте не нашлось заголовков. Скопируйте блок с заголовками из ответа ИИ.');
+  } catch {
+    // браузер не дал прочитать буфер — вставляем вручную
+    $('titles').focus();
+    toast('Нажмите в поле и выберите «Вставить»');
+  }
+};
+try { const t = localStorage.getItem('zr-titles'); if (t) { $('titles').value = t; setTitles(t); } } catch {}
+
+// --- шаг 2: видео ---
+$('f').onchange = () => {
+  let files = [...$('f').files];
+  $('f').value = '';
+  const free = MAX - items.length;
+  if (files.length > free) {
+    toast(`Можно до ${MAX} видео. Взяли первые ${free}.`);
+    files = files.slice(0, free);
+  }
+  files.forEach(addItem);
+  updateVideosNote();
+  renderAll();
+};
+function addItem(file) {
+  const el = document.createElement('div');
+  el.className = 'row';
+  el.innerHTML = `<span class="no"></span><canvas width="216" height="384"></canvas>
+    <div class="info"><span class="t"></span><div class="st"><div class="bar"><i></i></div><span class="s"></span></div>
+    <button class="save1" type="button">Сохранить</button></div><button class="rm" type="button" aria-label="Убрать">×</button>`;
+  const it = { file, frame: null, el, result: null,
+    ui: { no: el.querySelector('.no'), cv: el.querySelector('canvas'), t: el.querySelector('.t'),
+      bar: el.querySelector('.bar i'), s: el.querySelector('.s') } };
+  el.querySelector('.rm').onclick = () => {
+    if (running) return;
+    items = items.filter((x) => x !== it); el.remove(); updateVideosNote(); renderAll();
+  };
+  el.querySelector('.save1').onclick = () => it.result && save([it.result]);
+  items.push(it);
+  $('list').appendChild(el);
+  previewFrame(file).then((p) => { it.frame = p?.canvas || null; renderItem(it, items.indexOf(it)); })
+    .catch(() => {});
+}
+function updateVideosNote() {
+  const n = items.length;
+  $('step2').classList.toggle('ok', n > 0);
+  $('videosNote').innerHTML = n
+    ? `Выбрано <b>${n} ${plural(n, 'видео', 'видео', 'видео')}</b>. Можно добавить ещё (до ${MAX}).`
+    : `До ${MAX} видео. Видео 1 получит заголовок 1, видео 2 — заголовок 2 и так далее.`;
+}
+
+// --- список: номер, превью с плашкой, заголовок ---
+function renderItem(it, i) {
+  const title = titles[i];
+  it.ui.no.textContent = i + 1;
+  it.ui.t.textContent = title || 'Нет заголовка с таким номером — это видео пропустим';
+  it.ui.t.classList.toggle('miss', !title);
+  drawPreview(it.ui.cv, it.frame, title ? overlayFor(title) : null);
+  if (!it.result && !running) { it.ui.s.textContent = title ? 'Готово к монтажу' : ''; it.ui.bar.style.width = '0'; }
+}
+function renderAll() {
+  items.forEach(renderItem);
+  const n = Math.min(items.length, titles.length);
+  const left = items.filter((x, i) => titles[i] && !x.result).length;
+  $('goBtn').disabled = running || left === 0;
+  $('goBtn').textContent = !n ? 'Смонтировать'
+    : left ? `Смонтировать ${left} ${plural(left, 'рилс', 'рилса', 'рилсов')}`
+    : 'Все рилсы готовы ✓';
+  document.body.classList.toggle('busy', running);
+  $('step3').classList.toggle('ok', items.length > 0 && items.every((x) => x.result));
+}
+
+// --- шаг 3: монтаж ---
+$('goBtn').onclick = async () => {
+  if (running) { ctrl?.abort(); return; }
+  const work = items.map((it, i) => ({ it, i, title: titles[i] })).filter((w) => w.title && !w.it.result);
+  if (!work.length) return;
+  running = true; ctrl = new AbortController();
+  $('goBtn').disabled = false; $('goBtn').textContent = 'Остановить';
+  document.body.classList.add('busy');
+  $('warn').style.display = 'block';
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
+  // даты создания по порядку: рилс 1 — самый ранний, чтобы в галерее они шли подряд
+  const base = Date.now() - items.length * 60e3;
+  let software = false;
+  for (const { it, i, title } of work) {
+    if (ctrl.signal.aborted) break;
+    it.el.classList.remove('err');
+    it.ui.s.textContent = 'Монтаж…';
+    let blob = null, lastErr = null;
+    for (let attempt = 1; attempt <= 3 && !blob; attempt++) {
+      try {
+        blob = await makeReel(it.file, title, (p) => { it.ui.bar.style.width = (p * 100) + '%'; },
+          { signal: ctrl.signal, software, created: new Date(base + i * 60e3) });
+      } catch (e) {
+        if (e.name === 'AbortError') break;
+        console.warn('Попытка', attempt, e);
+        lastErr = e; software = true;
+        it.ui.s.textContent = 'Повторяю…';
+      }
+    }
+    if (blob) {
+      it.result = new File([blob], `Рилс ${String(i + 1).padStart(2, '0')}.mp4`, { type: 'video/mp4' });
+      it.el.classList.add('done');
+      it.ui.bar.style.width = '100%';
+      it.ui.s.textContent = 'Готово';
+    } else if (!ctrl.signal.aborted) {
+      it.el.classList.add('err');
+      it.ui.s.textContent = 'Не получилось. Нажмите «Смонтировать» ещё раз';
+      it.ui.s.title = String(lastErr?.message || lastErr);
+    } else {
+      it.ui.s.textContent = 'Остановлено';
+    }
+  }
+  running = false;
+  $('warn').style.display = 'none';
+  try { await wakeLock?.release(); } catch {}
+  renderAll();
+  renderSaves();
+  const done = items.filter((x) => x.result).length;
+  if (done) toast(`Готово ${done} ${plural(done, 'рилс', 'рилса', 'рилсов')}. Сохраните их в галерею`);
+};
+
+// --- сохранение: iPhone — «Поделиться» → «Сохранить видео»; Android и компьютер — в «Загрузки» ---
+const canShare = isIOS && typeof navigator.share === 'function';
+const BATCH = 10;   // iPhone надёжно сохраняет пачками по 10
+function renderSaves() {
+  const files = items.map((x) => x.result).filter(Boolean);
+  const box = $('saves');
+  box.innerHTML = '';
+  box.hidden = !files.length;
+  if (!files.length) return;
+  const groups = canShare ? [] : [files];
+  if (canShare) for (let k = 0; k < files.length; k += BATCH) groups.push(files.slice(k, k + BATCH));
+  groups.forEach((g) => {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    const first = g[0].name.match(/\d+/)[0] * 1, last = g[g.length - 1].name.match(/\d+/)[0] * 1;
+    b.textContent = canShare
+      ? (groups.length > 1 ? `Сохранить рилсы ${first}–${last} в галерею` : 'Сохранить все в галерею')
+      : 'Скачать все рилсы';
+    b.onclick = () => save(g);
+    box.appendChild(b);
+  });
+}
+function save(files) {
+  if (canShare) {
+    let p;
+    try { p = navigator.share({ files }); } catch (e) { p = Promise.reject(e); }
+    p.catch((e) => {
+      if (e?.name === 'AbortError') return;
+      console.warn('share:', e);
+      toast(files.length > 1 ? 'Не получилось сразу. Сохраните по одной — кнопка «Сохранить» у каждого рилса' : 'Не получилось сохранить, попробуйте ещё раз');
+    });
+    return;
+  }
+  (async () => {
+    for (const f of files) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(f); a.download = f.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 120000);
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    toast('Рилсы сохраняются в «Загрузки». На Android они появятся в Галерее');
+  })();
+}
+
+// --- начать заново ---
+$('resetBtn').onclick = () => {
+  if (running) return;
+  items = []; $('list').innerHTML = ''; $('saves').innerHTML = ''; $('saves').hidden = true;
+  updateVideosNote(); renderAll();
+  scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// --- обновление приложения ---
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!reloaded && !running) { reloaded = true; location.reload(); }
+  });
+}
+// для автотестов
+window.__addFiles = (files) => { files.forEach(addItem); updateVideosNote(); renderAll(); };
+window.__setTitles = (t) => { $('titles').value = t; setTitles(t); };
+window.__items = () => items;
+</script>
+</body>
+</html>

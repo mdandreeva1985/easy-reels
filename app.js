@@ -1,0 +1,241 @@
+// Заголовки для Reels: накладывает заголовок (белая плашка, чёрный текст) на видео.
+// Вся обработка идёт прямо на устройстве, ролики никуда не отправляются.
+import {
+  Input, ALL_FORMATS, BlobSource, Output, BufferTarget, Mp4OutputFormat,
+  CanvasSource, AudioBufferSource, CanvasSink, AudioBufferSink,
+  canEncodeAudio, canEncodeVideo,
+} from 'mediabunny';
+
+export const W = 1080, H = 1920;           // формат Reels
+const MAX_SEC = 90;                          // длиннее 90 секунд не берём
+const FONT = '700 {px}px -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
+// ---------------------------------------------------------------------------
+// Заголовки: из вставленного текста достаём пронумерованные строки
+// ---------------------------------------------------------------------------
+export function parseTitles(text) {
+  const src = String(text || '').replace(/\r/g, '');
+  // формат PDF: «Заголовок: …»
+  const labeled = [...src.matchAll(/^\s*(?:заголовок|хук)\s*[:—-]\s*(.+)$/gim)].map((m) => m[1].trim());
+  if (labeled.length) return labeled.map(clean).filter(Boolean).slice(0, 30);
+  // формат «1. текст» / «1) текст»
+  const numbered = [];
+  for (const line of src.split('\n')) {
+    const m = line.match(/^\s*(\d{1,2})\s*[.)]\s*(.+)$/);
+    if (m) numbered.push(clean(m[2]));
+  }
+  if (numbered.length) return numbered.filter(Boolean).slice(0, 30);
+  // просто строки
+  return src.split('\n').map(clean).filter((l) => l && !/^(скопируй|заголовки для|```)/i.test(l)).slice(0, 30);
+}
+function clean(s) {
+  return s.replace(/^[«"“']+|[»"”']+$/g, '').replace(/^\[|\]$/g, '').replace(/\*\*/g, '').trim();
+}
+
+// ---------------------------------------------------------------------------
+// Плашка с заголовком: прозрачный слой 1080×1920
+// ---------------------------------------------------------------------------
+export function makeOverlay(title) {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  let size = 66;
+  const maxW = 900;
+  let lines;
+  // если заголовок длинный — уменьшаем шрифт, чтобы было не больше 5 строк
+  for (;;) {
+    ctx.font = FONT.replace('{px}', size);
+    lines = wrap(ctx, title, maxW);
+    if (lines.length <= 5 || size <= 44) break;
+    size -= 4;
+  }
+  const lineH = Math.round(size * 1.28);
+  const padX = Math.round(size * 0.42), padY = Math.round(size * 0.16);
+  const r = Math.round(size * 0.32);
+  const y0 = Math.round(H * 0.16);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffffff';
+  lines.forEach((ln, i) => {
+    const w = ctx.measureText(ln).width;
+    const x = (W - w) / 2 - padX, y = y0 + i * lineH - padY;
+    roundRect(ctx, x, y, w + padX * 2, lineH + padY * 2, r);
+  });
+  ctx.fillStyle = '#000000';
+  lines.forEach((ln, i) => ctx.fillText(ln, W / 2, y0 + i * lineH + lineH / 2));
+  return c;
+}
+function wrap(ctx, text, maxW) {
+  const out = [];
+  for (const para of String(text).split(/\n/)) {
+    let cur = '';
+    for (const word of para.split(/\s+/).filter(Boolean)) {
+      const t = cur ? cur + ' ' + word : word;
+      if (ctx.measureText(t).width <= maxW || !cur) cur = t;
+      else { out.push(cur); cur = word; }
+    }
+    if (cur) out.push(cur);
+  }
+  return out.length ? out : [''];
+}
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Кадр «как у Reels»: заполняем 1080×1920 без чёрных полос (лишнее по краям обрезаем)
+function drawCover(ctx, img, sw, sh) {
+  const k = Math.max(W / sw, H / sh);
+  const dw = sw * k, dh = sh * k;
+  ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+}
+
+// ---------------------------------------------------------------------------
+// Превью: первый кадр видео + плашка (маленькая картинка для списка)
+// ---------------------------------------------------------------------------
+export async function previewFrame(file) {
+  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+  try {
+    const track = await input.getPrimaryVideoTrack();
+    if (!track) return null;
+    const dur = await input.computeDuration();
+    const sw = track.displayWidth, sh = track.displayHeight;
+    const k = 360 / Math.min(sw, sh);
+    const wc = await new CanvasSink(track, { width: Math.round(sw * k), height: Math.round(sh * k), fit: 'fill' })
+      .getCanvas(Math.min(0.5, dur / 2));
+    return wc ? { canvas: wc.canvas, duration: dur } : null;
+  } finally {
+    input.dispose?.();
+  }
+}
+export function drawPreview(canvas, frame, overlay) {
+  const s = canvas.width / W;
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.scale(s, s);
+  ctx.fillStyle = '#222'; ctx.fillRect(0, 0, W, H);
+  if (frame) drawCover(ctx, frame, frame.width, frame.height);
+  if (overlay) ctx.drawImage(overlay, 0, 0);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// Звук без изменений (перекодируем в AAC)
+// ---------------------------------------------------------------------------
+async function readAudio(track, t1) {
+  const parts = [];
+  let sr = track.sampleRate, ch = Math.min(2, track.numberOfChannels || 2);
+  for await (const { buffer, timestamp } of new AudioBufferSink(track).buffers(0, t1)) {
+    sr = buffer.sampleRate; ch = Math.min(2, buffer.numberOfChannels);
+    parts.push({ buffer, timestamp });
+  }
+  if (!parts.length) return null;
+  const len = Math.max(1, Math.round(t1 * sr));
+  const ctx = new OfflineAudioContext(ch, len, sr);
+  const out = ctx.createBuffer(ch, len, sr);
+  for (const { buffer, timestamp } of parts) {
+    const off = Math.round(timestamp * sr);
+    for (let c = 0; c < ch; c++) {
+      const src = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1));
+      const from = Math.max(0, -off), to = Math.min(src.length, len - off);
+      if (to > from) out.getChannelData(c).set(src.subarray(from, to), off + from);
+    }
+  }
+  return out;
+}
+
+let aacReady = null;
+function ensureAac() {
+  if (!aacReady) {
+    aacReady = (async () => {
+      if (!(await canEncodeAudio('aac'))) {
+        const { registerAacEncoder } = await import('./vendor/mediabunny-aac-encoder.min.mjs');
+        registerAacEncoder();
+      }
+    })();
+  }
+  return aacReady;
+}
+
+// ---------------------------------------------------------------------------
+// Один рилс: видео + заголовок → mp4 1080×1920
+// opts: { signal, software, created } — отмена, программный кодировщик, дата создания
+// ---------------------------------------------------------------------------
+export async function makeReel(file, title, onProgress = () => {}, opts = {}) {
+  const check = () => { if (opts.signal?.aborted) throw new DOMException('Отменено', 'AbortError'); };
+  check();
+  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+  try {
+    const vTrack = await input.getPrimaryVideoTrack();
+    if (!vTrack) throw new Error('В файле нет видео');
+    const aTrack = await input.getPrimaryAudioTrack();
+    const duration = Math.min(MAX_SEC, await input.computeDuration());
+
+    let srcFps = 30;
+    try { srcFps = (await vTrack.computePacketStats(200)).averagePacketRate || 30; } catch {}
+    const fps = [24, 25, 30].reduce((a, b) => (Math.abs(b - srcFps) < Math.abs(a - srcFps) ? b : a));
+    const bitrate = 9e6;
+    const hw = opts.software ? { hardwareAcceleration: 'prefer-software' } : {};
+    if (!(await canEncodeVideo('avc', { width: W, height: H, bitrate, ...hw }))) {
+      throw new Error('Это устройство не умеет кодировать видео 1080×1920');
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const overlay = makeOverlay(title);
+
+    const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
+    const vSource = new CanvasSource(canvas, { codec: 'avc', bitrate, keyFrameInterval: 2, latencyMode: 'quality', ...hw });
+    output.addVideoTrack(vSource);
+
+    let aSource = null, audio = null;
+    if (aTrack && (await aTrack.canDecode())) {
+      await ensureAac();
+      audio = await readAudio(aTrack, duration);
+      if (audio) {
+        aSource = new AudioBufferSource({ codec: 'aac', bitrate: 160000 });
+        output.addAudioTrack(aSource);
+      }
+    }
+    // дата создания по порядку (рилс 1 раньше рилса 2) — в галерее они встанут подряд
+    output.setMetadataTags({ creationTime: opts.created || new Date() });
+    await output.start();
+    if (aSource) { await aSource.add(audio); aSource.close(); }
+
+    const sw = vTrack.displayWidth, sh = vTrack.displayHeight;
+    const k = Math.max(W / sw, H / sh);
+    const sink = new CanvasSink(vTrack, { width: Math.round(sw * k), height: Math.round(sh * k), fit: 'fill', poolSize: 2 });
+    const frameCount = Math.max(1, Math.floor(duration * fps));
+    function* times() { for (let j = 0; j < frameCount; j++) yield Math.min(duration - 0.001, j / fps); }
+    let fi = 0;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    try {
+      for await (const wc of sink.canvasesAtTimestamps(times())) {
+        check();
+        if (wc) {
+          ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+          drawCover(ctx, wc.canvas, wc.canvas.width, wc.canvas.height);
+          ctx.drawImage(overlay, 0, 0);
+        }
+        await vSource.add(fi / fps, 1 / fps);
+        fi++;
+        if (fi % 10 === 0) onProgress(fi / frameCount);
+      }
+    } catch (e) {
+      await output.cancel().catch(() => {});
+      throw e;
+    }
+    vSource.close();
+    await output.finalize();
+    return new Blob([output.target.buffer], { type: 'video/mp4' });
+  } finally {
+    input.dispose?.();
+  }
+}
