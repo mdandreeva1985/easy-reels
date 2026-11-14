@@ -7,7 +7,7 @@ import {
 } from 'mediabunny';
 
 export const W = 1080, H = 1920;           // формат Reels
-const MAX_SEC = 90;                          // длиннее 90 секунд не берём
+export const MAX_SEC = 90;                          // длиннее 90 секунд не берём
 const FONT = '700 {px}px -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 // ---------------------------------------------------------------------------
@@ -128,6 +128,29 @@ export async function previewFrame(file) {
     input.dispose?.();
   }
 }
+// Ролик для окна правки: длительность, кадр в любой момент, лента кадров для обрезки
+export async function openClip(file) {
+  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+  const track = await input.getPrimaryVideoTrack();
+  if (!track) { input.dispose?.(); return null; }
+  const duration = await input.computeDuration();
+  const sw = track.displayWidth, sh = track.displayHeight;
+  const k = 360 / Math.min(sw, sh);
+  const sink = new CanvasSink(track, { width: Math.round(sw * k), height: Math.round(sh * k), fit: 'fill' });
+  const small = new CanvasSink(track, { width: Math.round(sw * k / 4), height: Math.round(sh * k / 4), fit: 'fill' });
+  return {
+    duration,
+    frameAt: async (s) => (await sink.getCanvas(Math.max(0, Math.min(duration - 0.05, s))))?.canvas || null,
+    async strip(n) {
+      const ts = Array.from({ length: n }, (_, i) => (duration * (i + 0.5)) / n);
+      const out = [];
+      for await (const wc of small.canvasesAtTimestamps(ts)) out.push(wc?.canvas || null);
+      return out;
+    },
+    close: () => input.dispose?.(),
+  };
+}
+
 export function drawPreview(canvas, frame, plate, pos) {
   const s = canvas.width / W;
   const ctx = canvas.getContext('2d');
@@ -142,19 +165,19 @@ export function drawPreview(canvas, frame, plate, pos) {
 // ---------------------------------------------------------------------------
 // Звук без изменений (перекодируем в AAC)
 // ---------------------------------------------------------------------------
-async function readAudio(track, t1) {
+async function readAudio(track, t0, t1) {
   const parts = [];
   let sr = track.sampleRate, ch = Math.min(2, track.numberOfChannels || 2);
-  for await (const { buffer, timestamp } of new AudioBufferSink(track).buffers(0, t1)) {
+  for await (const { buffer, timestamp } of new AudioBufferSink(track).buffers(t0, t1)) {
     sr = buffer.sampleRate; ch = Math.min(2, buffer.numberOfChannels);
     parts.push({ buffer, timestamp });
   }
   if (!parts.length) return null;
-  const len = Math.max(1, Math.round(t1 * sr));
+  const len = Math.max(1, Math.round((t1 - t0) * sr));
   const ctx = new OfflineAudioContext(ch, len, sr);
   const out = ctx.createBuffer(ch, len, sr);
   for (const { buffer, timestamp } of parts) {
-    const off = Math.round(timestamp * sr);
+    const off = Math.round((timestamp - t0) * sr);
     for (let c = 0; c < ch; c++) {
       const src = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1));
       const from = Math.max(0, -off), to = Math.min(src.length, len - off);
@@ -179,7 +202,7 @@ function ensureAac() {
 
 // ---------------------------------------------------------------------------
 // Один рилс: видео + заголовок → mp4 1080×1920
-// opts: { pos, signal, software, created } — позиция плашки, отмена, программный кодировщик, дата создания
+// opts: { pos, start, end, signal, software, created } — позиция плашки, обрезка (сек), отмена, программный кодировщик, дата создания
 // ---------------------------------------------------------------------------
 export async function makeReel(file, title, onProgress = () => {}, opts = {}) {
   const check = () => { if (opts.signal?.aborted) throw new DOMException('Отменено', 'AbortError'); };
@@ -189,7 +212,10 @@ export async function makeReel(file, title, onProgress = () => {}, opts = {}) {
     const vTrack = await input.getPrimaryVideoTrack();
     if (!vTrack) throw new Error('В файле нет видео');
     const aTrack = await input.getPrimaryAudioTrack();
-    const duration = Math.min(MAX_SEC, await input.computeDuration());
+    const full = await input.computeDuration();
+    const t0 = Math.max(0, Math.min(full - 0.1, opts.start || 0));
+    const t1 = Math.min(full, t0 + MAX_SEC, opts.end > t0 ? opts.end : full);
+    const duration = t1 - t0;
 
     let srcFps = 30;
     try { srcFps = (await vTrack.computePacketStats(200)).averagePacketRate || 30; } catch {}
@@ -213,7 +239,7 @@ export async function makeReel(file, title, onProgress = () => {}, opts = {}) {
     let aSource = null, audio = null;
     if (aTrack && (await aTrack.canDecode())) {
       await ensureAac();
-      audio = await readAudio(aTrack, duration);
+      audio = await readAudio(aTrack, t0, t1);
       if (audio) {
         aSource = new AudioBufferSource({ codec: 'aac', bitrate: 160000 });
         output.addAudioTrack(aSource);
@@ -228,7 +254,7 @@ export async function makeReel(file, title, onProgress = () => {}, opts = {}) {
     const k = Math.max(W / sw, H / sh);
     const sink = new CanvasSink(vTrack, { width: Math.round(sw * k), height: Math.round(sh * k), fit: 'fill', poolSize: 2 });
     const frameCount = Math.max(1, Math.floor(duration * fps));
-    function* times() { for (let j = 0; j < frameCount; j++) yield Math.min(duration - 0.001, j / fps); }
+    function* times() { for (let j = 0; j < frameCount; j++) yield t0 + Math.min(duration - 0.001, j / fps); }
     let fi = 0;
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     try {
