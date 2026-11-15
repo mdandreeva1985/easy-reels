@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Easy Reels</title>
 <meta name="description" content="Накладывает заголовки на ваши видео прямо на телефоне">
-<meta name="theme-color" content="#f5f3fa">
+<meta name="theme-color" content="#faf5f7">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Easy Reels">
@@ -16,13 +16,13 @@
 <script type="importmap">{ "imports": { "mediabunny": "./vendor/mediabunny.min.mjs" } }</script>
 <style>
 :root{
-  --bg:#f5f3fa;--card:#fff;--ink:#17151f;--muted:#76717f;--soft:#eeebf4;--line:#e8e4ef;
-  --a1:#7b4dff;--a2:#e24dff;--ok:#23a55a;--okbg:#e3f5ea;--err:#d33;--errbg:#fde8e8;--workbg:#f1ebff;
-  --shadow:0 10px 30px rgba(40,20,80,.07);
+  --bg:#faf5f7;--card:#fff;--ink:#1c1418;--muted:#7a6f74;--soft:#f3eaee;--line:#efe3e8;
+  --a1:#B0234A;--a2:#D4466E;--ok:#23a55a;--okbg:#e3f5ea;--err:#d33;--errbg:#fde8e8;--workbg:#fbe8ee;
+  --shadow:0 10px 30px rgba(80,20,40,.07);
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#121116;--card:#1d1b23;--ink:#f3f1f7;--muted:#9c97a6;--soft:#2a2731;--line:#2d2a33;
-  --okbg:#173a26;--errbg:#3c1a1a;--workbg:#2a2140;--shadow:none}}
+  --okbg:#173a26;--errbg:#3c1a1a;--workbg:#3a1a24;--shadow:none}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);
   font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,Segoe UI,Roboto,sans-serif}
@@ -35,7 +35,7 @@ h1{margin:4px 0 6px;font-size:36px;line-height:1.1;font-weight:800;letter-spacin
 .cap i{font-style:normal;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--soft);color:var(--ink);letter-spacing:0}
 .card.ok .cap i{background:var(--ok);color:#fff}
 .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:60px;border:0;border-radius:18px;cursor:pointer;
-  background:linear-gradient(90deg,var(--a1),var(--a2));color:#fff;font-size:19px;font-weight:700;box-shadow:0 10px 24px rgba(123,77,255,.25)}
+  background:linear-gradient(90deg,var(--a1),var(--a2));color:#fff;font-size:19px;font-weight:700;box-shadow:0 10px 24px rgba(176,35,74,.25)}
 .btn:disabled{opacity:.4;box-shadow:none}
 .btn svg{width:22px;height:22px}
 .btn.dark{background:var(--ink);color:var(--bg);box-shadow:none}
