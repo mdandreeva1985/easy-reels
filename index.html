@@ -44,6 +44,9 @@ input[type=file]{display:none}
 textarea{width:100%;min-height:96px;max-height:220px;margin-top:12px;padding:12px 14px;border-radius:16px;border:1.5px solid var(--line);
   background:var(--bg);color:var(--ink);font-family:inherit;font-size:15px;line-height:1.4;resize:vertical}
 textarea:focus{outline:none;border-color:var(--a1)}
+.titles-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.titles-row .note{flex:1}
+.clear{flex:none;margin-top:10px;border:0;background:var(--soft);color:var(--ink);border-radius:12px;height:36px;padding:0 14px;font-size:15px;font-weight:600;cursor:pointer}
 .note{color:var(--muted);font-size:14px;margin:10px 0 0}
 .note b{color:var(--ink)}
 .note.good b{color:var(--ok)}
@@ -179,7 +182,10 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
       Вставить заголовки
     </button>
     <textarea id="titles" placeholder="Скопируйте заголовки из ответа ИИ и вставьте сюда. По одному на строку: 1. … 2. … 3. …"></textarea>
-    <p class="note" id="titlesNote">Заголовков пока нет</p>
+    <div class="titles-row">
+      <p class="note" id="titlesNote">Заголовков пока нет</p>
+      <button type="button" class="clear" id="clearTitles" hidden>Очистить</button>
+    </div>
   </section>
 
   <!-- ШАГ 2 -->
@@ -353,7 +359,7 @@ function setTitles(text) {
     ? `Найдено <b>${n} ${plural(n, 'заголовок', 'заголовка', 'заголовков')}</b>`
     : 'Заголовков пока нет';
   $('step1').classList.toggle('ok', n > 0);
-  try { localStorage.setItem('zr-titles', text); } catch {}
+  $('clearTitles').hidden = !text.trim();
   renderAll();
 }
 $('titles').addEventListener('input', () => setTitles($('titles').value));
@@ -370,7 +376,10 @@ $('pasteBtn').onclick = async () => {
     toast('Нажмите в поле и выберите «Вставить»');
   }
 };
-try { const t = localStorage.getItem('zr-titles'); if (t) { $('titles').value = t; setTitles(t); } } catch {}
+// каждый запуск — с чистого поля (старые заголовки больше не храним)
+try { localStorage.removeItem('zr-titles'); } catch {}
+$('titles').value = '';
+$('clearTitles').onclick = () => { $('titles').value = ''; setTitles(''); $('titles').focus(); };
 
 // --- шаг 2: видео ---
 $('f').onchange = () => {
