@@ -91,6 +91,10 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
 .gate-err[hidden]{display:none}
 .gate-buy{display:flex;align-items:center;justify-content:center;height:54px;border-radius:18px;background:var(--ink);color:var(--bg);font-weight:700;text-decoration:none}
 .gate-buy[hidden]{display:none}
+.gate-code{background:none;border:0;color:var(--muted);font-size:15px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.gate-codebox{display:flex;flex-direction:column;gap:14px}
+.gate-codebox[hidden]{display:none}
+a.btn{text-decoration:none}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;pointer-events:none;
   background:#17151f;color:#fff;padding:14px 18px;border-radius:14px;font-size:15px;width:max-content;max-width:calc(100% - 32px);text-align:center;transition:.25s;z-index:60}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -153,10 +157,15 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
 <div id="gate" class="gate" hidden>
   <form class="gate-card" id="gateForm" autocomplete="off">
     <span class="gate-t">Easy Reels</span>
-    <p>Введите код доступа, который вы получили после покупки</p>
-    <input id="code" inputmode="text" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" maxlength="16" aria-label="Код доступа">
-    <span class="gate-err" id="gateErr" hidden>Такого кода нет. Проверьте буквы и цифры и попробуйте ещё раз.</span>
-    <button class="btn" type="submit">Войти</button>
+    <p id="gateText">Приложение открывается через Telegram-бот: нажмите «Открыть» в боте @Marya_andreeva_Bot</p>
+    <span class="gate-err" id="gateMsg" hidden></span>
+    <a class="btn" id="gateTg" href="https://t.me/Marya_andreeva_Bot?start=easy">Открыть в Telegram</a>
+    <button type="button" class="gate-code" id="haveCode">У меня есть код доступа</button>
+    <div class="gate-codebox" id="codeBox" hidden>
+      <input id="code" inputmode="text" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" maxlength="16" aria-label="Код доступа">
+      <span class="gate-err" id="gateErr" hidden>Такого кода нет. Проверьте буквы и цифры и попробуйте ещё раз.</span>
+      <button class="btn" type="submit">Войти</button>
+    </div>
     <a class="gate-buy" id="gateBuy" href="#" target="_blank" rel="noopener" hidden>Подробнее и купить доступ</a>
   </form>
 </div>
@@ -229,6 +238,7 @@ footer{color:var(--muted);font-size:14px;text-align:center;margin-top:32px;displ
 <script type="module">
 import { parseTitles, makePlate, clampPos, POS, MAX_SEC, makeReel, previewFrame, openClip, drawPreview } from './app.js';
 import { SALT, CODES } from './codes.js';
+import { runInTelegram, redeemPass, savedToken, recheck, ERRORS } from './tgaccess.js';
 
 const $ = (id) => document.getElementById(id);
 const MAX = 30;
@@ -258,13 +268,24 @@ const kv = {
     try { await (await caches.open('zr-meta')).put('__meta/' + k, new Response(v)); } catch {}
   },
 };
+// Внутри Telegram (мини-апп в боте) приложение не запускаем, а открываем в браузере с доступом
+const inTelegram = await runInTelegram({
+  product: 'easy', name: 'Easy Reels', price: '1 490 ₽',
+  about: 'Инструкция для ИИ пишет 30 заголовков и продающих описаний, а приложение само накладывает заголовки на ваши видео. 30 рилсов за один вечер.',
+});
+// доступ через Telegram (пропуск из бота) или старый код доступа
+const TG_KEY = 'zr-tg';
+const passResult = inTelegram ? null : await redeemPass({ product: 'easy', kv, key: TG_KEY });
+const tgToken = inTelegram ? null : await savedToken({ kv, key: TG_KEY, product: 'easy' });
 const saved = (await kv.get(KEY)).find((h) => CODES.has(h));
 if (saved) kv.set(KEY, saved);
-else {
+if (!inTelegram && !saved && !tgToken) {
   $('gate').hidden = false;
+  if (passResult?.error) { $('gateMsg').textContent = ERRORS[passResult.error] || ERRORS.bad_pass; $('gateMsg').hidden = false; }
   if (BUY_URL) { $('gateBuy').href = BUY_URL; $('gateBuy').hidden = false; }
-  setTimeout(() => $('code').focus(), 100);
 }
+if (tgToken && !saved) recheck({ kv, key: TG_KEY, token: tgToken }).then((ok) => { if (!ok) location.reload(); });
+$('haveCode').onclick = () => { $('codeBox').hidden = false; $('haveCode').hidden = true; setTimeout(() => $('code').focus(), 100); };
 $('code').addEventListener('input', () => {
   const v = $('code').value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
   $('code').value = v.match(/.{1,4}/g)?.join('-') || '';
@@ -286,7 +307,7 @@ $('gateForm').addEventListener('submit', async (e) => {
 const ua = navigator.userAgent;
 const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 (() => {
-  const inApp = /Instagram|FBAN|FBAV|FB_IAB|Telegram|VKAndroidApp|VKClient|Line\/|MicroMessenger|; wv\)/i.test(ua);
+  const inApp = !inTelegram && /Instagram|FBAN|FBAV|FB_IAB|Telegram|VKAndroidApp|VKClient|Line\/|MicroMessenger|; wv\)/i.test(ua);
   if (inApp) {
     $('inapp').hidden = false;
     const url = location.href.split('#')[0];

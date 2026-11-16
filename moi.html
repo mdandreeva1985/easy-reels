@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мои приложения</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#f7f1f3;--card:#fff;--ink:#1d1418;--muted:#7a6a70;--line:#ead9df}
+@media (prefers-color-scheme:dark){:root{--bg:#141012;--card:#1f191c;--ink:#f5eef1;--muted:#a8979e;--line:#33282d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px 16px 40px}
+h1{font-size:26px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px}
+.app{background:var(--card);border-radius:22px;padding:18px;display:flex;gap:14px;align-items:center;margin-bottom:14px;box-shadow:0 6px 24px rgba(0,0,0,.06)}
+.app img{width:64px;height:64px;border-radius:16px;flex:none}
+.app .t{flex:1;min-width:0}
+.app b{display:block;font-size:18px}
+.app span{color:var(--muted);font-size:14px}
+.app button{flex:none;height:44px;padding:0 18px;border:0;border-radius:14px;font:700 15px inherit;color:#fff;cursor:pointer}
+.easy button{background:linear-gradient(90deg,#b22349,#d4466a)}
+.uniq button{background:linear-gradient(90deg,#ff5a36,#ff9a3c)}
+.app button.buy{background:var(--ink);color:var(--bg)}
+.app button:disabled{opacity:.5}
+.msg{color:var(--muted);text-align:center;margin-top:18px}
+</style>
+</head>
+<body>
+<h1>Мои приложения</h1>
+<p class="sub" id="hello">Проверяем доступ…</p>
+<div class="app easy">
+  <img src="https://mdandreeva1985.github.io/easy-reels/icons/icon-192.png" alt="">
+  <div class="t"><b>Easy Reels</b><span>30 рилсов с заголовками за вечер</span></div>
+  <button type="button" id="b-easy" disabled>…</button>
+</div>
+<div class="app uniq">
+  <img src="https://mdandreeva1985.github.io/unikalizator/icons/icon-192.png" alt="">
+  <div class="t"><b>Уникализатор</b><span>До 10 копий одного ролика</span></div>
+  <button type="button" id="b-uniq" disabled>…</button>
+</div>
+<p class="msg" id="msg"></p>
+<script type="module">
+import { API, BOT } from './tgaccess.js';
+const tg = window.Telegram?.WebApp;
+tg?.ready(); tg?.expand();
+const initData = tg?.initData || '';
+const post = (p, b) => fetch(API + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) })
+  .then((r) => r.json()).catch(() => ({ ok: false, error: 'network' }));
+const $ = (id) => document.getElementById(id);
+const say = (t) => { $('msg').textContent = t; };
+const openBot = (p) => { tg?.openTelegramLink ? tg.openTelegramLink(`https://t.me/${BOT}?start=${p}`) : (location.href = `https://t.me/${BOT}?start=${p}`); tg?.close?.(); };
+
+if (!initData) {
+  $('hello').textContent = `Откройте эту страницу через бота @${BOT}`;
+} else {
+  const s = await post('/status', { initData });
+  if (!s.ok) {
+    $('hello').textContent = s.error === 'network' ? 'Нет связи с сервером. Проверьте интернет.' : 'Не получилось проверить доступ. Откройте страницу заново через бота.';
+  } else {
+    $('hello').textContent = s.name ? `${s.name}, здесь ваши приложения` : 'Здесь ваши приложения';
+    for (const p of ['easy', 'uniq']) {
+      const b = $('b-' + p);
+      b.disabled = false;
+      if (s.products[p]) {
+        b.textContent = 'Открыть';
+        b.onclick = async () => {
+          b.disabled = true; say('Открываем…');
+          const r = await post('/pass', { initData, product: p });
+          b.disabled = false;
+          if (r.ok) { tg.openLink(r.url); say('Приложение открылось в браузере. Установите его на экран «Домой» — дальше открывайте с иконки.'); }
+          else say('Не получилось открыть. Попробуйте ещё раз.');
+        };
+      } else {
+        b.textContent = 'Купить'; b.classList.add('buy');
+        b.onclick = () => openBot(p);
+      }
+    }
+  }
+}
+</script>
+</body>
+</html>
