@@ -4,10 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Мои приложения</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{--bg:#f7f1f3;--card:#fff;--ink:#1d1418;--muted:#7a6a70;--line:#ead9df}
-@media (prefers-color-scheme:dark){:root{--bg:#141012;--card:#1f191c;--ink:#f5eef1;--muted:#a8979e;--line:#33282d}}
+:root{--bg:#f7f1f3;--card:#fff;--ink:#1d1418;--muted:#7a6a70}
+@media (prefers-color-scheme:dark){:root{--bg:#141012;--card:#1f191c;--ink:#f5eef1;--muted:#a8979e}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px 16px 40px}
 h1{font-size:26px;margin:0 0 4px}
@@ -29,7 +28,7 @@ h1{font-size:26px;margin:0 0 4px}
 <h1>Мои приложения</h1>
 <p class="sub" id="hello">Проверяем доступ…</p>
 <div class="app easy">
-  <img src="https://mdandreeva1985.github.io/easy-reels/icons/icon-192.png" alt="">
+  <img src="icons/icon-192.png" alt="">
   <div class="t"><b>Easy Reels</b><span>30 рилсов с заголовками за вечер</span></div>
   <button type="button" id="b-easy" disabled>…</button>
 </div>
@@ -40,22 +39,22 @@ h1{font-size:26px;margin:0 0 4px}
 </div>
 <p class="msg" id="msg"></p>
 <script type="module">
-import { API, BOT } from './tgaccess.js';
-const tg = window.Telegram?.WebApp;
-tg?.ready(); tg?.expand();
-const initData = tg?.initData || '';
+import { API, BOT, tg, tgInitData } from './tgaccess.js';
+tg.ready(); tg.expand();
+const initData = tgInitData();
 const post = (p, b) => fetch(API + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) })
   .then((r) => r.json()).catch(() => ({ ok: false, error: 'network' }));
 const $ = (id) => document.getElementById(id);
 const say = (t) => { $('msg').textContent = t; };
-const openBot = (p) => { tg?.openTelegramLink ? tg.openTelegramLink(`https://t.me/${BOT}?start=${p}`) : (location.href = `https://t.me/${BOT}?start=${p}`); tg?.close?.(); };
+// «Купить» — открываем воронку этого приложения в боте
+const buy = (p) => { tg.openTelegramLink(`https://t.me/${BOT}?start=${p}`); setTimeout(() => tg.close(), 300); };
 
 if (!initData) {
-  $('hello').textContent = `Откройте эту страницу через бота @${BOT}`;
+  $('hello').textContent = `Эта страница открывается кнопкой «Мои приложения» в боте @${BOT}`;
 } else {
   const s = await post('/status', { initData });
   if (!s.ok) {
-    $('hello').textContent = s.error === 'network' ? 'Нет связи с сервером. Проверьте интернет.' : 'Не получилось проверить доступ. Откройте страницу заново через бота.';
+    $('hello').textContent = s.error === 'network' ? 'Нет связи с сервером. Проверьте интернет и откройте страницу ещё раз.' : 'Не получилось проверить доступ. Закройте и откройте страницу заново.';
   } else {
     $('hello').textContent = s.name ? `${s.name}, здесь ваши приложения` : 'Здесь ваши приложения';
     for (const p of ['easy', 'uniq']) {
@@ -72,7 +71,7 @@ if (!initData) {
         };
       } else {
         b.textContent = 'Купить'; b.classList.add('buy');
-        b.onclick = () => openBot(p);
+        b.onclick = () => buy(p);
       }
     }
   }
