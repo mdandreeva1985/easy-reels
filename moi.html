@@ -21,6 +21,9 @@ h1{font-size:26px;margin:0 0 4px}
 .uniq button{background:linear-gradient(90deg,#ff5a36,#ff9a3c)}
 .app button.buy{background:var(--ink);color:var(--bg)}
 .app button:disabled{opacity:.5}
+.app .btns{display:flex;flex-direction:column;gap:8px;flex:none}
+.app button.pdf{background:none;color:var(--ink);border:1.5px solid currentColor;height:38px;padding:0 12px;font-size:14px}
+.app button.pdf[hidden]{display:none}
 .msg{color:var(--muted);text-align:center;margin-top:18px}
 </style>
 </head>
@@ -30,7 +33,10 @@ h1{font-size:26px;margin:0 0 4px}
 <div class="app easy">
   <img src="icons/icon-192.png" alt="">
   <div class="t"><b>Easy Reels</b><span>30 рилсов с заголовками за вечер</span></div>
-  <button type="button" id="b-easy" disabled>…</button>
+  <div class="btns">
+    <button type="button" id="b-easy" disabled>…</button>
+    <button type="button" id="pdf-easy" class="pdf" hidden>📄 Инструкция PDF</button>
+  </div>
 </div>
 <div class="app uniq">
   <img src="https://mdandreeva1985.github.io/unikalizator/icons/icon-192.png" alt="">
@@ -69,6 +75,19 @@ if (!initData) {
           if (r.ok) { tg.openLink(r.url); say('Приложение открылось в браузере. Установите его на экран «Домой» — дальше открывайте с иконки.'); }
           else say('Не получилось открыть. Попробуйте ещё раз.');
         };
+        const d = $('pdf-' + p);
+        if (d) {
+          d.hidden = false;
+          d.onclick = async () => {
+            d.disabled = true; say('Готовим инструкцию…');
+            const r = await post('/pdf', { initData, product: p });
+            d.disabled = false;
+            if (!r.ok) return say('Не получилось скачать инструкцию. Попробуйте ещё раз.');
+            say(tg.downloadFile(r.url, r.name)
+              ? 'Подтвердите скачивание. Файл сохранится в «Загрузки» на телефоне. Это всегда самая свежая версия инструкции.'
+              : 'Инструкция открылась в браузере. Сохраните файл на телефон. Это всегда самая свежая версия.');
+          };
+        }
       } else {
         b.textContent = 'Купить'; b.classList.add('buy');
         b.onclick = () => buy(p);

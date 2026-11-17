@@ -22,7 +22,13 @@ function postEvent(type, data = {}) {
     window.parent.postMessage(JSON.stringify({ eventType: type, eventData: data }), '*');
   } catch {}
 }
+const TG_VER = parseFloat(new URLSearchParams(location.hash.slice(1)).get('tgWebAppVersion') || '0');
 export const tg = {
+  // скачать файл: Telegram 8.0+ сохраняет сам; в старых версиях — открываем ссылку в браузере
+  downloadFile: (url, file_name) => {
+    if (TG_VER >= 8) { postEvent('web_app_request_file_download', { url, file_name }); return true; }
+    postEvent('web_app_open_link', { url }); return false;
+  },
   ready: () => postEvent('web_app_ready'),
   expand: () => postEvent('web_app_expand'),
   close: () => postEvent('web_app_close'),
