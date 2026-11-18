@@ -1,6 +1,6 @@
 // Сохраняет приложение на устройстве, чтобы оно работало без интернета.
 // При обновлении приложения увеличьте номер версии.
-const VERSION = 'zr-v13';
+const VERSION = 'zr-v14';
 const META = 'zr-meta';   // служебные данные (код доступа) — не удаляем при обновлении
 const FILES = [
   './', './index.html', './app.js', './codes.js', './tgaccess.js', './manifest.webmanifest',

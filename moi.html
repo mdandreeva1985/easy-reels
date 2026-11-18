@@ -46,7 +46,7 @@ const post = (p, b) => fetch(API + p, { method: 'POST', headers: { 'content-type
   .then((r) => r.json()).catch(() => ({ ok: false, error: 'network' }));
 const $ = (id) => document.getElementById(id);
 const say = (t) => { $('msg').textContent = t; };
-// «Купить» — открываем воронку этого приложения в боте
+// «Подключить» — открываем воронку этого приложения в боте
 const buy = (p) => { tg.openTelegramLink(`https://t.me/${BOT}?start=${p}`); setTimeout(() => tg.close(), 300); };
 
 if (!initData) {
@@ -70,7 +70,7 @@ if (!initData) {
           else say('Не получилось открыть. Попробуйте ещё раз.');
         };
       } else {
-        b.textContent = 'Купить'; b.classList.add('buy');
+        b.textContent = 'Подключить'; b.classList.add('buy');
         b.onclick = () => buy(p);
       }
     }
